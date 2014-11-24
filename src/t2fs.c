@@ -228,6 +228,5 @@ int create2(char *filename)
 // Test
 int main()
 {
-	createEntryCwd("hello.dat", 2);
 	return 0;
 }
