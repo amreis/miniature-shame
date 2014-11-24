@@ -4,6 +4,13 @@
 #define __LIBT2FS___
 
 #define STR_END '\0'
+#define UNUSED_POINTER 0xFFFFFFFF
+#define BLOCK_TO_SECTOR(b) (b == -1 ? -1 : (b*sectorsPerBlock + 1))
+
+
+#define true 1
+#define false 0
+#define bool char
 
 typedef int FILE2;
 typedef int DIR2;
@@ -16,7 +23,7 @@ typedef struct {
 } DIRENT2;
 
 typedef struct {
-    char TypeVal; // 0xFF invalid, 0x01 file, 0x02 directory
+    unsigned char TypeVal; // 0xFF invalid, 0x01 file, 0x02 directory
     char name[31];
     int blocksFileSize;
     int bytesFileSize;
@@ -24,6 +31,12 @@ typedef struct {
     int singleIndPtr;
     int doubleIndPtr;
 } t2fs_record;
+
+typedef struct {
+    unsigned int pointers[SECTOR_SIZE/sizeof(int)];
+} INDEX_BLOCK;
+const int nEntriesIndexBlock = SECTOR_SIZE/sizeof(int);
+int maxNofBlocks;
 
 typedef struct {
     int Id;
@@ -38,6 +51,13 @@ typedef struct {
     t2fs_record BitMapReg;
     t2fs_record RootDirReg;
 } SUPERBLOCK;
+
+typedef struct {
+    char name[31];
+    int directoryBlock;
+    int indexInDirectory;
+    int offset;
+} OPEN_FILE;
 
 int identify2 (char *name, int size);
 
