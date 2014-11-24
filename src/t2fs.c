@@ -119,38 +119,40 @@ int allocNewBlock()
     return -1;
 }
 
+int read_block(int block, char *out)
+{
+    int startSector = BLOCK_TO_SECTOR(block);
+    int i;
+    for (i = 0; i < sectorsPerBlock; ++i)
+    {
+        if (read_sector(startSector + i, out + SECTOR_SIZE*i) != 0) return -1;
+    }
+    return 0;
+}
+
 int readNthBlock(const t2fs_record *rec, int n, char *out)
 {
     int i;
     if (n < 4)
     {
-        int startSector = BLOCK_TO_SECTOR(rec->dataPtr[n]);
-        for (i = 0; i < sectorsPerBlock; ++i)
-        {
-            if (read_sector(startSector + i, out + (SECTOR_SIZE*i)) == -1) return -1;
-        }
-        return 0;
+        return read_block(n, out);
     }
     else if (n < 68) // Uses only single indirect
     {
         INDEX_BLOCK ib;
-        if (read_sector(BLOCK_TO_SECTOR(rec->singleIndPtr), (char*) &ib) == -1) return -1;
+        if (read_block(rec->singleIndPtr, (char*) &ib) != 0) return -1;
         n -= 4; // The 4 first are direct pointers (first if)
-        int startSector = BLOCK_TO_SECTOR(ib.pointers[n]);
-        for (i = 0; i < sectorsPerBlock; ++i)
-            if (read_sector(startSector + i, out + (SECTOR_SIZE*i)) == -1) return -1;
+        read_block(ib.pointers[n], out);
         return 0;
     }
     else {
         INDEX_BLOCK ib;
-        if (read_sector(BLOCK_TO_SECTOR(rec->doubleIndPtr), (char*) &ib) == -1) return -1;
+        if (read_block(rec->doubleIndPtr, (char*) &ib) != 0) return -1;
         n = (n-68);
         int firstInd = n/nEntriesIndexBlock;
         int secondInd = n % nEntriesIndexBlock;
-        if (read_sector(BLOCK_TO_SECTOR(ib.pointers[firstInd]), (char*) &ib) == -1) return -1;
-        int startSector = BLOCK_TO_SECTOR(ib.pointers[secondInd]);
-        for (i = 0; i < sectorsPerBlock; ++i)
-            if (read_sector(startSector + i, out + (SECTOR_SIZE * i)) == -1) return -1;
+        if (read_block(ib.pointers[firstInd], (char*) &ib) != 0) return -1;
+        read_block(ib.pointers[secondInd], out);
         return 0;
     }
 }
@@ -159,20 +161,21 @@ int createEntryCwd(char *filename, int beginBlock, int type)
 {
     t2fs_record buffer[SECTOR_SIZE*sectorsPerBlock/sizeof(t2fs_record)];
     int i = 0, j;
-    for (i = 0; i < maxNofBlocks; ++i)
+    bool created = false;
+    for (i = 0; i < maxNofBlocks && !created; ++i)
     {
         if (readNthBlock(&cwdDescriptor, i, (char*)buffer) == -1)
         {
             // If we get invalid read on a block, we should allocate a new block and update
             // the entry in this directory's parent to reflect that.
        }
-        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record); ++j)
+        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && !created ; ++j)
         {
             t2fs_record r = buffer[j];
             if (r.TypeVal != 0x01 && r.TypeVal != 0x02)
             {
                 r.TypeVal = type;
-                if (strncpy2(r.name, filename, sizeof(r.name)) != -1){
+                if (strncpy2(r.name, filename, sizeof(r.name)) == -1){
                     printf("Name too big: %s\n", filename);
                     return -1;
                 }
@@ -183,13 +186,14 @@ int createEntryCwd(char *filename, int beginBlock, int type)
                 r.singleIndPtr = UNUSED_POINTER;
                 r.doubleIndPtr = UNUSED_POINTER;
                 
-                
-                
-                return 0;
+                buffer[j] = r;
+            
+                created = true;
             }
             
         }
     }
+    i--;
     return 0;
 }
 
