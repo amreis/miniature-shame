@@ -1,0 +1,182 @@
+Sectors per block: 4
+Creating...
+Didnt create file hello0.txt.
+Didnt create file hello1.txt.
+Didnt create file hello2.txt.
+Didnt create file hello3.txt.
+Didnt create file hello4.txt.
+Didnt create file hello5.txt.
+Didnt create file hello6.txt.
+Didnt create file hello7.txt.
+Didnt create file hello8.txt.
+Didnt create file hello9.txt.
+Didnt create file hello:.txt.
+Didnt create file hello;.txt.
+Didnt create file hello<.txt.
+Didnt create file hello=.txt.
+OH NOES, MUST USE INDIRECTIONZ!!!
+Didnt create file hello>.txt.
+OH NOES, MUST USE INDIRECTIONZ!!!
+Didnt create file hello?.txt.
+OH NOES, MUST USE INDIRECTIONZ!!!
+Didnt create file hello@.txt.
+----------- RECORD 0 ------------
+Type: directory
+Name: .
+File size in blocks: 1
+File size in bytes: 1024
+First pointers...
+1
+-1
+-1
+-1
+----------- RECORD 1 ------------
+Type: directory
+Name: ..
+File size in blocks: 1
+File size in bytes: 1024
+First pointers...
+1
+-1
+-1
+-1
+----------- RECORD 2 ------------
+Type: file
+Name: hello0.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+2
+-1
+-1
+-1
+----------- RECORD 3 ------------
+Type: file
+Name: hello1.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+3
+-1
+-1
+-1
+----------- RECORD 4 ------------
+Type: file
+Name: hello2.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+4
+-1
+-1
+-1
+----------- RECORD 5 ------------
+Type: file
+Name: hello3.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+5
+-1
+-1
+-1
+----------- RECORD 6 ------------
+Type: file
+Name: hello4.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+6
+-1
+-1
+-1
+----------- RECORD 7 ------------
+Type: file
+Name: hello5.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+7
+-1
+-1
+-1
+----------- RECORD 8 ------------
+Type: file
+Name: hello6.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+8
+-1
+-1
+-1
+----------- RECORD 9 ------------
+Type: file
+Name: hello7.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+9
+-1
+-1
+-1
+----------- RECORD 10 ------------
+Type: file
+Name: hello8.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+10
+-1
+-1
+-1
+----------- RECORD 11 ------------
+Type: file
+Name: hello9.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+11
+-1
+-1
+-1
+----------- RECORD 12 ------------
+Type: file
+Name: hello:.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+12
+-1
+-1
+-1
+----------- RECORD 13 ------------
+Type: file
+Name: hello;.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+13
+-1
+-1
+-1
+----------- RECORD 14 ------------
+Type: file
+Name: hello<.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+14
+-1
+-1
+-1
+----------- RECORD 15 ------------
+Type: file
+Name: hello=.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+15
+-1
+-1
+-1
