@@ -36,10 +36,6 @@ typedef struct {
     int doubleIndPtr;
 } t2fs_record;
 
-typedef struct {
-    unsigned int pointers[SECTOR_SIZE/sizeof(int)];
-} INDEX_BLOCK;
-const int nEntriesIndexBlock = SECTOR_SIZE/sizeof(int);
 int maxNofBlocks;
 
 typedef struct {

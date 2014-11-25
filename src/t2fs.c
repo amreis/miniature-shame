@@ -24,7 +24,12 @@ t2fs_record cwdDescriptor;
 t2fs_record bitmapDescriptor;
 
 int sectorsPerBlock;
-
+/*
+typedef struct {
+    unsigned int pointers[sectorsPerBlock*SECTOR_SIZE/sizeof(int)];
+} INDEX_BLOCK;
+const int nEntriesIndexBlock = SECTOR_SIZE/sizeof(int);
+*/
 // TODO - OPEN DIRS
 int strncpy2(char *dst, const char *org, int n)
 {
@@ -274,7 +279,7 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
         for (i = 0; i < dotdot.blocksFileSize && !done; ++i)
         {
             readNthBlock(&dotdot, i, (char*)buffer);
-            for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && sizeof(t2fs_record)*j < dotdot.bytesFileSize && !done; ++j)
+            for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && i*partitionInfo.BlockSize + sizeof(t2fs_record)*j < dotdot.bytesFileSize && !done; ++j)
             {
                 if (streq2(buffer[j].name, desc->name))
                 {
@@ -300,7 +305,7 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
     for (i = 0; i < desc->blocksFileSize; ++i)
     {
         readNthBlock(desc, i, (char*)buffer);
-        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && sizeof(t2fs_record)*j < desc->bytesFileSize; ++j)
+        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && i*partitionInfo.BlockSize + sizeof(t2fs_record)*j < desc->bytesFileSize; ++j)
         {
             if (buffer[j].TypeVal == TYPEVAL_DIR && !(streq2(buffer[j].name, ".") || streq2(buffer[j].name, "..")))
             {
@@ -345,16 +350,30 @@ int createEntryCwd(char *filename, int beginBlock, int type, t2fs_record* descri
                 cwdDescriptor.dataPtr[cwdDescriptor.blocksFileSize] = newBlock;
                 cwdDescriptor.blocksFileSize++;
             }
-            /*
-            else if
-            */
-            read_block(newBlock, (char*)buffer);
-            for (j = 0; j < 16; ++j)
+            else if (cwdDescriptor.blocksFileSize == 4)
+            {
+                // allocate first index block too
+                int indirectBlock = allocNewBlock();
+                cwdDescriptor.singleIndPtr = indirectBlock;
+                int j;
+                int buffer2[partitionInfo.BlockSize/sizeof(int)];
+                for (j = 0; j < sizeof(buffer2)/sizeof(int); ++j)
+                {
+                    buffer2[i] = UNUSED_POINTER;
+                }
+                buffer2[0] = newBlock;
+                cwdDescriptor.blocksFileSize++;
+                write_block(indirectBlock, (char*)buffer2);
+            }
+            
+            // read_block(newBlock, (char*)buffer);
+            for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record); ++j)
             {
                 buffer[j] = (t2fs_record) { .TypeVal = TYPEVAL_INVALID } ;
             }
             write_block(newBlock, (char*)buffer);
-            updateDescriptorOnDisk(&cwdDescriptor);
+
+//            updateDescriptorOnDisk(&cwdDescriptor);
         }
         for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && 
                     i*(partitionInfo.BlockSize) + j*sizeof(t2fs_record) < cwdDescriptor.bytesFileSize; ++j)
@@ -383,12 +402,13 @@ int createEntryCwd(char *filename, int beginBlock, int type, t2fs_record* descri
                 buffer[j] = r;
                 
                 *descriptorOut = r;
+                cwdDescriptor.bytesFileSize += sizeof(int);
                 created = true;
             }
         }
     }
     i--;
-    
+    updateDescriptorOnDisk(&cwdDescriptor);
     writeNthBlock(&cwdDescriptor, i, (char*)buffer);
     return 0;
 }
