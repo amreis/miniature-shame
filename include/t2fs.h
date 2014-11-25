@@ -12,6 +12,10 @@
 #define false 0
 #define bool char
 
+#define TYPEVAL_FILE 0x01
+#define TYPEVAL_DIR 0x02
+#define TYPEVAL_INVALID 0xFF
+
 typedef int FILE2;
 typedef int DIR2;
 
@@ -53,9 +57,8 @@ typedef struct {
 } SUPERBLOCK;
 
 typedef struct {
-    char name[31];
-    int directoryBlock;
-    int indexInDirectory;
+    t2fs_record descriptor;
+    t2fs_record dirDescriptor;
     int offset;
 } OPEN_FILE;
 
