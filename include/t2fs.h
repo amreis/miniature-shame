@@ -6,7 +6,7 @@
 #define STR_END '\0'
 #define UNUSED_POINTER 0xFFFFFFFF
 #define BLOCK_TO_SECTOR(b) (b == -1 ? -1 : (b*sectorsPerBlock + 1))
-
+#define MAX_OPEN_FILES 20
 
 #define true 1
 #define false 0
