@@ -14,20 +14,17 @@ Didnt create file hello:.txt.
 Didnt create file hello;.txt.
 Didnt create file hello<.txt.
 Didnt create file hello=.txt.
-OH NOES, MUST USE INDIRECTIONZ!!!
 Didnt create file hello>.txt.
-OH NOES, MUST USE INDIRECTIONZ!!!
 Didnt create file hello?.txt.
-OH NOES, MUST USE INDIRECTIONZ!!!
 Didnt create file hello@.txt.
 ----------- RECORD 0 ------------
 Type: directory
 Name: .
-File size in blocks: 1
+File size in blocks: 2
 File size in bytes: 1024
 First pointers...
 1
--1
+17
 -1
 -1
 ----------- RECORD 1 ------------
@@ -178,5 +175,200 @@ File size in bytes: 0
 First pointers...
 15
 -1
+-1
+-1
+----------- RECORD 0 ------------
+Type: file
+Name: hello>.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+16
+-1
+-1
+-1
+----------- RECORD 1 ------------
+Type: file
+Name: hello?.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+18
+-1
+-1
+-1
+----------- RECORD 2 ------------
+Type: file
+Name: hello@.txt
+File size in blocks: 1
+File size in bytes: 0
+First pointers...
+19
+-1
+-1
+-1
+----------- RECORD 3 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 4 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 5 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 6 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 7 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 8 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 9 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 10 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 11 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 12 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 13 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 14 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+----------- RECORD 15 ------------
+Type: invalid
+Name: 
+File size in blocks: 0
+File size in bytes: 0
+First pointers...
+0
+0
+0
+0
+Id: 53463254
+Version: ffffffe2 7d
+Superblock size: 1 0 (1) 
+Disk size: 1048832
+N of blocks: 1024
+Block Size: 1024
+Bitmap info:
+Type: file
+Name: bitmap
+File size in blocks: 1
+File size in bytes: 128
+First pointers...
+0
+-1
+-1
+-1
+Rootdir info:
+Type: directory
+Name: /
+File size in blocks: 1
+File size in bytes: 1024
+First pointers...
+1
+17
+-1
+-1
+Type: directory
+Name: /
+File size in blocks: 1
+File size in bytes: 1024
+First pointers...
+1
+17
 -1
 -1

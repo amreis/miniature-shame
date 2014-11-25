@@ -60,6 +60,7 @@ typedef struct {
     t2fs_record descriptor;
     t2fs_record dirDescriptor;
     int offset;
+    bool open;
 } OPEN_FILE;
 
 int identify2 (char *name, int size);

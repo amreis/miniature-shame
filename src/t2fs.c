@@ -2,6 +2,9 @@
 #include "t2fs.h"
 #include <stdio.h> // TODO - Remove
 #include <stdlib.h>
+#include <string.h>
+
+// TODO guardar setor atual onde se encontra o descritor do diretório?
 
 #define TEST_INIT_PARTINFO if (!partitionInfoInitialized) { \
 	if (readSuperblock() != 0) return -1; \
@@ -226,6 +229,101 @@ int writeNthBlock(const t2fs_record* rec, int n, char *data)
     }
 }
 
+int updateDescriptorOnDisk(const t2fs_record* desc)
+{
+    // Update on .. and on .
+    t2fs_record buffer[SECTOR_SIZE*sectorsPerBlock/sizeof(t2fs_record)];
+    t2fs_record buffer2[SECTOR_SIZE*sectorsPerBlock/sizeof(t2fs_record)];
+    read_block(desc->dataPtr[0], (char*)buffer);
+    buffer[0].blocksFileSize = desc->blocksFileSize; // sera?
+    if (desc->blocksFileSize <= 4)
+    {
+        buffer[0].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
+    }
+    else if (desc->blocksFileSize == 5)
+    {
+        buffer[0].singleIndPtr = desc->singleIndPtr;
+    }
+    else if (desc->blocksFileSize == 69)
+    {
+        buffer[0].doubleIndPtr = desc->doubleIndPtr;
+    }
+    write_block(desc->dataPtr[0], (char*)buffer);
+    t2fs_record dotdot = buffer[1];
+    if (streq2(desc->name, "/"))
+    {
+        // Is root: update superblock.
+        if (desc->blocksFileSize <= 4)
+        {
+            partitionInfo.RootDirReg.dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
+        }
+        else if (desc->blocksFileSize == 5)
+        {
+            partitionInfo.RootDirReg.singleIndPtr = desc->singleIndPtr;
+        }
+        else if (desc->blocksFileSize == 69)
+        {
+            partitionInfo.RootDirReg.doubleIndPtr = desc->doubleIndPtr;
+        }
+        write_sector(0, (char*) &partitionInfo);
+    }
+    else
+    {
+        bool done = false;
+        int i, j;
+        for (i = 0; i < dotdot.blocksFileSize && !done; ++i)
+        {
+            readNthBlock(&dotdot, i, (char*)buffer);
+            for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && sizeof(t2fs_record)*j < dotdot.bytesFileSize && !done; ++j)
+            {
+                if (streq2(buffer[j].name, desc->name))
+                {
+                    if (desc->blocksFileSize <= 4)
+                    {
+                        buffer[j].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
+                    }
+                    else if (desc->blocksFileSize == 5)
+                    {
+                        buffer[j].singleIndPtr = desc->singleIndPtr;
+                    }
+                    else if (desc->blocksFileSize == 69)
+                    {
+                        buffer[j].doubleIndPtr = desc->doubleIndPtr;
+                    }
+                    writeNthBlock(&dotdot, i, (char*)buffer);
+                    done = true;
+                }
+            }
+        }
+    }
+    int i, j;
+    for (i = 0; i < desc->blocksFileSize; ++i)
+    {
+        readNthBlock(desc, i, (char*)buffer);
+        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && sizeof(t2fs_record)*j < desc->bytesFileSize; ++j)
+        {
+            if (buffer[j].TypeVal == TYPEVAL_DIR && !(streq2(buffer[j].name, ".") || streq2(buffer[j].name, "..")))
+            {
+                readNthBlock(&buffer[j], 0, (char*)buffer2);
+                if (desc->blocksFileSize <= 4)
+                {
+                    buffer2[1].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
+                }
+                else if (desc->blocksFileSize == 5)
+                {
+                    buffer2[1].singleIndPtr = desc->singleIndPtr;
+                }
+                else if (desc->blocksFileSize == 69)
+                {
+                    buffer2[1].doubleIndPtr = desc->doubleIndPtr;
+                }
+                writeNthBlock(&buffer[j], 0, (char*)buffer2);
+            }
+        }
+    }
+    return 0;
+}
+
 
 int createEntryCwd(char *filename, int beginBlock, int type, t2fs_record* descriptorOut)
 {
@@ -237,15 +335,37 @@ int createEntryCwd(char *filename, int beginBlock, int type, t2fs_record* descri
         if (readNthBlock(&cwdDescriptor, i, (char*)buffer) == -1)
         {
             // If we get invalid read on a block, we should allocate a new block and update
-            // the entry in this directory's parent to reflect that.
-            printf("OH NOES, MUST USE INDIRECTIONZ!!!\n");
-            return -1;
+            // the entry in this directory's parent and in every child to reflect that.
+            
+            int newBlock = allocNewBlock();
+            if (newBlock == -1) return -1;
+            
+            if (cwdDescriptor.blocksFileSize < 4)
+            {
+                cwdDescriptor.dataPtr[cwdDescriptor.blocksFileSize] = newBlock;
+                cwdDescriptor.blocksFileSize++;
+            }
+            /*
+            else if
+            */
+            read_block(newBlock, (char*)buffer);
+            for (j = 0; j < 16; ++j)
+            {
+                buffer[j] = (t2fs_record) { .TypeVal = TYPEVAL_INVALID } ;
+            }
+            write_block(newBlock, (char*)buffer);
+            updateDescriptorOnDisk(&cwdDescriptor);
+        }
+        for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && 
+                    i*(partitionInfo.BlockSize) + j*sizeof(t2fs_record) < cwdDescriptor.bytesFileSize; ++j)
+        {
+            t2fs_record r = buffer[j];
+            if (r.TypeVal != TYPEVAL_INVALID && streq2(r.name, filename))
+                return -1;            
         }
         for (j = 0; j < sizeof(buffer)/sizeof(t2fs_record) && !created ; ++j)
         {
             t2fs_record r = buffer[j];
-            if (r.TypeVal == TYPEVAL_FILE && streq2(r.name, filename))
-                return -1;
             if (r.TypeVal != TYPEVAL_DIR && r.TypeVal != TYPEVAL_FILE)
             {
                 r.TypeVal = type;
@@ -265,11 +385,61 @@ int createEntryCwd(char *filename, int beginBlock, int type, t2fs_record* descri
                 *descriptorOut = r;
                 created = true;
             }
-            
         }
     }
     i--;
+    
     writeNthBlock(&cwdDescriptor, i, (char*)buffer);
+    return 0;
+}
+
+int createEntryAbsolute(char *filename, int beginBlock, int type, t2fs_record* descriptorOut)
+{
+    t2fs_record dir = partitionInfo.RootDirReg;
+    t2fs_record save = cwdDescriptor;
+    t2fs_record buffer[partitionInfo.BlockSize/sizeof(t2fs_record)];
+    char *token;
+    if (strstr(filename, "/") != NULL)
+    {
+        token = strtok(filename, "/");
+        do 
+        {
+            printf("Entered %s\n", filename);
+            int i, j;
+            bool found = false;
+            for (i = 0; i < dir.blocksFileSize && !found; ++i)
+            {
+                readNthBlock(&dir, i, (char*) buffer);
+                for (j = 0; i*(partitionInfo.BlockSize) + j*sizeof(t2fs_record) < dir.bytesFileSize && !found; ++j)
+                {
+                    if (streq2(token, buffer[j].name))
+                    {
+                        dir = buffer[j];
+                        found = true;
+                    }
+                }
+            }
+            if (!found) return -1;
+            strtok(NULL, "/");
+        } while (strstr(filename, "/") != NULL);
+        cwdDescriptor = dir;
+        if (createEntryCwd(filename, beginBlock, type, descriptorOut) == -1)
+        {
+            cwdDescriptor = save;
+            return -1;
+        }
+        cwdDescriptor = save;
+        return 0;
+    }
+    else {
+        cwdDescriptor = dir;
+        if (createEntryCwd(filename, beginBlock, type, descriptorOut) == -1)
+        {
+            cwdDescriptor = save;
+            return -1;
+        }
+        cwdDescriptor = save;
+    }
     return 0;
 }
 
@@ -297,8 +467,15 @@ FILE2 create2(char *filename)
     t2fs_record r;
     int newBlock = allocNewBlock();
     if (newBlock == -1) return -1;
-    
-    if (createEntryCwd(filename, newBlock, TYPEVAL_FILE, &r) != 0)
+    if (filename[0] == '/')
+    {
+        if (createEntryAbsolute(filename+1, newBlock, TYPEVAL_FILE, &r) != 0)
+        {
+            freeBlock(newBlock);
+            return -1;
+        }
+    }
+    else if (createEntryCwd(filename, newBlock, TYPEVAL_FILE, &r) != 0)
     {
         freeBlock(newBlock);
         return -1;
@@ -307,7 +484,8 @@ FILE2 create2(char *filename)
     openFiles[nOpenFiles] = (OPEN_FILE) {
         .descriptor = r,
         .offset = 0,
-        .dirDescriptor = cwdDescriptor
+        .dirDescriptor = cwdDescriptor,
+        .open = true
     };
     nOpenFiles++;
     return nOpenFiles - 1;
@@ -339,6 +517,8 @@ int main()
             printRecordInfo((t2fs_record*) buffer + i);
         }
     }
-    
+    SUPERBLOCK s;
+    read_sector(0, (char*) &s); 
+    printSuperblockInfo(&s);
     return 0;
 }
