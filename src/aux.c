@@ -13,6 +13,15 @@ void copyRecord(t2fs_record *dst, const t2fs_record *org)
     dst->TypeVal = org->TypeVal;
 }
 
+void copyRecordWithoutName(t2fs_record *dst, const t2fs_record *org)
+{
+    memcpy(dst->dataPtr, org->dataPtr, 4*sizeof(int));
+    dst->singleIndPtr = org->singleIndPtr;
+    dst->doubleIndPtr = org->doubleIndPtr;
+    dst->bytesFileSize = org->bytesFileSize;
+    dst->blocksFileSize = org->blocksFileSize;
+    dst->TypeVal = org->TypeVal;
+}
 int strncpy2(char *dst, const char *org, int n)
 {
 	int i = 0;
@@ -86,6 +95,7 @@ int readSuperblock()
 
 int read_block(int block, char *out)
 {
+    if (block < 0) return -1;
     int startSector = BLOCK_TO_SECTOR(block);
     int i;
     for (i = 0; i < sectorsPerBlock; ++i)
@@ -97,6 +107,7 @@ int read_block(int block, char *out)
 
 int write_block(int block, char *data)
 {
+    if (block < 0) return -1;
     int startSector = BLOCK_TO_SECTOR(block);
     int i;
     for (i = 0; i < sectorsPerBlock; ++i)
@@ -143,6 +154,7 @@ int allocNewBlock()
 
 int freeBlock(int block)
 {
+    if (block < 0) return -1;
     char buffer[partitionInfo.BlockSize];
     // If block is in one of the first 4 blocks of the bitmap...
     if (block <= SECTOR_SIZE*8*sectorsPerBlock*4)
@@ -151,15 +163,39 @@ int freeBlock(int block)
         read_block(blockToRead, buffer);
         int byteToRead = (block - blockToRead*partitionInfo.BlockSize)/8;
         // Clear associated bit
-        buffer[byteToRead] &= ~(1 << (block - blockToRead*partitionInfo.BlockSize) % 8);
+        buffer[byteToRead] &= ~(1 << ((block - blockToRead*partitionInfo.BlockSize) % 8));
         write_block(blockToRead, buffer);
         return 0;
     }
     return -1;
 }
 
+int getNthBlock(const t2fs_record *rec, int n)
+{
+    if (n < 0) return -1;
+    if (n < 4)
+        return rec->dataPtr[n];
+    else if (n < 4 + entriesInIndexBlock) // Uses only single indirect
+    {
+        int ib[partitionInfo.BlockSize/sizeof(int)];
+        if (read_block(rec->singleIndPtr, (char*) ib) != 0) return -1;
+        n -= 4; // The 4 first are direct pointers (first if)
+        return ib[n];
+    }
+    else {
+        int ib[partitionInfo.BlockSize/sizeof(int)];
+        if (read_block(rec->doubleIndPtr, (char*) ib) != 0) return -1;
+        n = (n-68);
+        int firstInd = n/(sizeof(ib)/sizeof(int));
+        int secondInd = n % (sizeof(ib)/sizeof(int));
+        if (read_block(ib[firstInd], (char*) ib) != 0) return -1;
+        return ib[secondInd];
+    }
+}
+
 int readNthBlock(const t2fs_record *rec, int n, char *out)
 {
+    if (n < 0) return -1;
     if (n < 4)
     {
         return read_block(rec->dataPtr[n], out);
@@ -184,8 +220,63 @@ int readNthBlock(const t2fs_record *rec, int n, char *out)
     }
 }
 
+int invalidateNthBlock(t2fs_record *rec, int n)
+{
+    if (n < 0) return -1;
+    if (n < 4)
+    {
+        freeBlock(rec->dataPtr[n]);
+        rec->dataPtr[n] = UNUSED_POINTER;
+        return 0;
+    }
+    else if (n < 4 + entriesInIndexBlock) // Uses only single indirect
+    {
+        int ib[partitionInfo.BlockSize/sizeof(int)];
+        if (read_block(rec->singleIndPtr, (char*) ib) != 0) return -1;
+        n -= 4; // The 4 first are direct pointers (first if)
+        
+        freeBlock(ib[n]);
+        ib[n] = UNUSED_POINTER;
+        write_block(rec->singleIndPtr, (char*)ib);
+        if (n == 0)
+        {
+            freeBlock(rec->singleIndPtr);
+            rec->singleIndPtr = UNUSED_POINTER;
+        }
+        return 0;
+    }
+    else {
+        int ib[partitionInfo.BlockSize/sizeof(int)];
+        int ib2[partitionInfo.BlockSize/sizeof(int)];
+        if (read_block(rec->doubleIndPtr, (char*) ib) != 0) return -1;
+        n = (n-68);
+        int firstInd = n/(sizeof(ib)/sizeof(int));
+        int secondInd = n % (sizeof(ib)/sizeof(int));
+        if (secondInd == 0)
+        if (read_block(ib[firstInd], (char*) ib2) != 0) return -1;
+        
+        freeBlock(ib2[secondInd]);
+        ib2[secondInd] = UNUSED_POINTER;
+        write_block(ib2[secondInd], (char*) ib2);
+        if (secondInd == 0)
+        {
+            freeBlock(ib[firstInd]);
+            ib[firstInd] = UNUSED_POINTER;
+            write_block(rec->doubleIndPtr, (char*) ib);
+            if (firstInd == 0)
+            {
+                freeBlock(rec->doubleIndPtr);
+                rec->doubleIndPtr = UNUSED_POINTER;
+            }
+        }
+        return 0;
+    }
+}
+
 int writeNthBlock(const t2fs_record* rec, int n, char *data)
 {
+    if (n < 0)
+        return -1;
     if (n < 4)
     {
         return write_block(rec->dataPtr[n], data);
@@ -210,32 +301,24 @@ int writeNthBlock(const t2fs_record* rec, int n, char *data)
     }
 }
 
+
+
 int updateDescriptorOnDisk(const t2fs_record* desc)
 {
     // Update on .. and on .
     t2fs_record buffer[partitionInfo.BlockSize/sizeof(t2fs_record)];
     t2fs_record buffer2[partitionInfo.BlockSize/sizeof(t2fs_record)];
     read_block(desc->dataPtr[0], (char*)buffer);
-    buffer[0].blocksFileSize = desc->blocksFileSize; // sera?
-    buffer[0].bytesFileSize = desc->bytesFileSize;
-    if (desc->blocksFileSize <= 4)
-    {
-        buffer[0].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
-    }
-    else if (desc->blocksFileSize == 5)
-    {
-        buffer[0].singleIndPtr = desc->singleIndPtr;
-    }
-    else if (desc->blocksFileSize == 4 + entriesInIndexBlock + 1)
-    {
-        buffer[0].doubleIndPtr = desc->doubleIndPtr;
-    }
+    
+    copyRecordWithoutName(&buffer[0], desc);
+   
     write_block(desc->dataPtr[0], (char*)buffer);
     t2fs_record dotdot = buffer[1];
     if (streq2(desc->name, "/"))
     {
         // Is root: update superblock.
-        if (desc->blocksFileSize <= 4)
+        copyRecordWithoutName(&partitionInfo.RootDirReg, desc);
+        /*if (desc->blocksFileSize <= 4)
         {
             partitionInfo.RootDirReg.dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
         }
@@ -249,6 +332,7 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
         }
         partitionInfo.RootDirReg.blocksFileSize = desc->blocksFileSize;
         partitionInfo.RootDirReg.bytesFileSize = desc->bytesFileSize;
+        * */
         write_sector(0, (char*) &partitionInfo);
     }
     else
@@ -262,7 +346,7 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
             {
                 if (streq2(buffer[j].name, desc->name))
                 {
-                    if (desc->blocksFileSize <= 4)
+                    /*if (desc->blocksFileSize <= 4)
                     {
                         buffer[j].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
                     }
@@ -275,7 +359,8 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
                         buffer[j].doubleIndPtr = desc->doubleIndPtr;
                     }
                     buffer[j].blocksFileSize = desc->blocksFileSize;
-                    buffer[j].bytesFileSize = desc->bytesFileSize;
+                    buffer[j].bytesFileSize = desc->bytesFileSize;*/
+                    copyRecordWithoutName(&buffer[j], desc);
                     writeNthBlock(&dotdot, i, (char*)buffer);
                     done = true;
                 }
@@ -291,6 +376,7 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
             if (buffer[j].TypeVal == TYPEVAL_DIR && !(streq2(buffer[j].name, ".") || (!streq2(desc->name, "/") && streq2(buffer[j].name, ".."))))
             {
                 readNthBlock(&buffer[j], 0, (char*)buffer2);
+                /*
                 if (desc->blocksFileSize <= 4)
                 {
                     buffer2[1].dataPtr[desc->blocksFileSize-1] = desc->dataPtr[desc->blocksFileSize-1];
@@ -305,6 +391,8 @@ int updateDescriptorOnDisk(const t2fs_record* desc)
                 }
                 buffer2[1].blocksFileSize = desc->blocksFileSize;
                 buffer2[1].bytesFileSize = desc->bytesFileSize;
+                **/
+                copyRecordWithoutName(&buffer2[1], desc);
                 writeNthBlock(&buffer[j], 0, (char*)buffer2);
             }
         }
@@ -465,7 +553,8 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
                     return -1;
                 }
                 r.blocksFileSize = 1;
-                r.bytesFileSize = 0;
+                
+                r.bytesFileSize = (type == TYPEVAL_DIR ? partitionInfo.BlockSize : 0);
                 r.dataPtr[0] = beginBlock;
                 r.dataPtr[1] = r.dataPtr[2] = r.dataPtr[3] = UNUSED_POINTER;
                 r.singleIndPtr = UNUSED_POINTER;
@@ -526,7 +615,55 @@ t2fs_record findParentDescriptor(const char *filename, char *outName)
         outName != NULL ? strcpy(outName, lastToken) : 0 ;
         return dir;
     }
-    else { strcpy(outName, filename); return dir; }
+    else { outName != NULL ? strcpy(outName, filename) : 0; return dir; }
+}
+
+t2fs_record findDirDescriptor(const char *filename)
+{
+    t2fs_record buffer[partitionInfo.BlockSize/sizeof(t2fs_record)];
+    char l_filename[MAX_FILE_NAME_SIZE + 1];
+    strcpy(l_filename, filename);
+    t2fs_record dir;
+    if (filename[0] == '/')
+        dir = partitionInfo.RootDirReg;
+    else
+        dir = cwdDescriptor;
+    char *token;
+    //char lastToken[MAX_FILE_NAME_SIZE + 1];
+    //if (strstr(filename, "/") != NULL)
+    {
+        token = strtok(l_filename, "/");
+        if (token == NULL) return dir;
+        if (strlen(token) == 0) token = strtok(NULL, "/");
+        if (token == NULL) return dir;
+        do 
+        {
+            //strcpy(lastToken, token);
+            //token = strtok(NULL, "/");
+            //if (token == NULL) break;
+            int i, j;
+            bool found = false;
+            for (i = 0; i < dir.blocksFileSize && !found; ++i)
+            {
+                if (readNthBlock(&dir, i, (char*) buffer) != 0)  break;
+                for (j = 0; i*(partitionInfo.BlockSize) + j*sizeof(t2fs_record) <= dir.bytesFileSize && !found; ++j)
+                {
+                    printf("Buffer[%d].name = %s\n", j, buffer[j].name);
+                    if (streq2(token, buffer[j].name))
+                    {
+                        printf("Found %s entry in cwd!\n", token);
+                        dir = buffer[j];
+                        found = true;
+                    }
+                }
+            }
+            if (!found) return (t2fs_record) { .TypeVal = TYPEVAL_INVALID };
+            token = strtok(NULL, "/");
+        } while (token != NULL);
+        //outName != NULL ? strcpy(outName, lastToken) : 0 ;
+        return dir;
+    }
+    //else { outName != NULL ? strcpy(outName, filename) : 0; return dir; }
 }
 
 t2fs_record findFileInDir(const t2fs_record *dir, const char *filename)

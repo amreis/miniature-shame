@@ -1,3 +1,4 @@
+Sectors per block: 4
 Id: 53463254
 Version: ffffffe2 7d
 Superblock size: 1 0 (1) 
@@ -25,12 +26,15 @@ First pointers...
 -1
 -1
 Creating...
-Sectors per block: 4
 Trying to create file hello.txt, reading block 0
+Name conflict!
 Testing double dot.
 Trying to create file helloDD.txt, reading block 0
+Name conflict!
 Trying to create file helloDD2.txt, reading block 0
+Name conflict!
 Trying to create file helloD.txt, reading block 0
+Name conflict!
 Id: 53463254
 Version: ffffffe2 7d
 Superblock size: 1 0 (1) 
@@ -59,6 +63,7 @@ First pointers...
 -1
 Pathname: /hellodirParent dir: /
 Trying to create file hellodir, reading block 0
+Name conflict!
 ------------- RECORD 0 --------------
 Type: directory
 Name: .
@@ -123,7 +128,7 @@ First pointers...
 Type: directory
 Name: hellodir
 File size in blocks: 1
-File size in bytes: 0
+File size in bytes: 1024
 First pointers...
 6
 -1
@@ -280,102 +285,4 @@ First pointers...
 0
 0
 ------------- RECORD 6 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 7 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 8 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 9 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 10 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 11 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 12 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 13 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 14 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
-------------- RECORD 15 --------------
-Type: invalid
-Name: 
-File size in blocks: 0
-File size in bytes: 0
-First pointers...
-0
-0
-0
-0
+T

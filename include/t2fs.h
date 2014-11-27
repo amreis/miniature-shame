@@ -59,6 +59,12 @@ typedef struct {
     bool open;
 } OPEN_FILE;
 
+typedef struct {
+    t2fs_record descriptor;
+    int index;
+    bool open;
+} OPEN_DIR;
+
 int identify2 (char *name, int size);
 
 FILE2 create2 (char *filename);
