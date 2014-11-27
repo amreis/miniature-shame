@@ -1,5 +1,4 @@
 #include "aux.h"
-#include <stdio.h>
 #include <string.h>
 
 void copyRecord(t2fs_record *dst, const t2fs_record *org)
@@ -22,6 +21,10 @@ void copyRecordWithoutName(t2fs_record *dst, const t2fs_record *org)
     dst->blocksFileSize = org->blocksFileSize;
     dst->TypeVal = org->TypeVal;
 }
+
+inline int min(int a, int b)
+{ return a < b ? a : b; }
+
 int strncpy2(char *dst, const char *org, int n)
 {
 	int i = 0;
@@ -39,7 +42,7 @@ bool streq2(const char *s1, const char *s2)
 {
     return strcmp(s1, s2) == 0;
 }
-
+/*
 void printRecordInfo(t2fs_record *r)
 {
     
@@ -78,7 +81,7 @@ void printSuperblockInfo(SUPERBLOCK *s)
 	printf("Rootdir info:\n");
 	printRecordInfo(&s->RootDirReg);
 }
-
+*/
 
 int readSuperblock()
 {
@@ -87,7 +90,6 @@ int readSuperblock()
     cwdDescriptor = partitionInfo.RootDirReg;
     bitmapDescriptor = partitionInfo.BitMapReg;
 	sectorsPerBlock = partitionInfo.BlockSize/SECTOR_SIZE;
-    printf("Sectors per block: %d\n", sectorsPerBlock);
     entriesInIndexBlock = partitionInfo.BlockSize/sizeof(int);
     maxNofBlocks = 4 + entriesInIndexBlock + entriesInIndexBlock*entriesInIndexBlock;
 	return 0;
@@ -148,7 +150,6 @@ int allocNewBlock()
         return -1; // No free blocks
     
     }
-    printf("Bitmap is too big, must handle it...\n");
     return -1;
 }
 
@@ -407,12 +408,10 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
     bool created = false;
     for (i = 0; i < maxNofBlocks && !created; ++i)
     {
-        printf("Trying to create file %s, reading block %d\n", filename, i);
         if (readNthBlock(dir, i, (char*)buffer) == -1)
         {
             // If we get invalid read on a block, we should allocate a new block and update
             // the entry in this directory's parent and in every child to reflect that.
-            printf("Block %d returned invalid pointer, allocating...\n", i);
             int newBlock = allocNewBlock();
             if (newBlock == -1) return -1;
             
@@ -426,6 +425,7 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
             {
                 // allocate first index block too
                 int indirectBlock = allocNewBlock();
+                if (indirectBlock == -1) return -1;
                 dir->singleIndPtr = indirectBlock;
                 int j;
                 int buffer2[partitionInfo.BlockSize/sizeof(int)];
@@ -459,12 +459,14 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
             {
                 // Need to use double indirection
                 int doubleIndirectBlock = allocNewBlock();
+                if (doubleIndirectBlock == -1) return -1;
                 dir->doubleIndPtr = doubleIndirectBlock;
                 int j;
                 int buffer2[partitionInfo.BlockSize/sizeof(int)];
                 for (j = 0; j < sizeof(buffer2)/sizeof(int); ++j)
                     buffer2[j] = UNUSED_POINTER;
                 int simpleIndirectBlock = allocNewBlock();
+                if (simpleIndirectBlock == -1) return -1;
                 buffer2[0] = simpleIndirectBlock;
                 write_block(doubleIndirectBlock, (char*)buffer2);
                 buffer2[0] = newBlock;
@@ -483,6 +485,7 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
                     if (buffer2[j] == UNUSED_POINTER)
                     {
                         int singleIndBlock = allocNewBlock();
+                        if (singleIndBlock == -1) return -1;
                         buffer2[j] = singleIndBlock;
                         buffer3[k] = newBlock;
                         for (k = 1; k < entriesInIndexBlock; ++k)
@@ -538,7 +541,6 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
             t2fs_record r = buffer[j];
             if (r.TypeVal != TYPEVAL_INVALID && !strcmp(r.name, filename))
             {
-                printf("Name conflict!\n");
                 return -1;            
             }
         }
@@ -549,7 +551,6 @@ int createEntryDir(t2fs_record* dir, const char *filename, int beginBlock, int t
             {
                 r.TypeVal = type;
                 if (strncpy2(r.name, filename, sizeof(r.name)) == -1){
-                    printf("Name too big: %s\n", filename);
                     return -1;
                 }
                 r.blocksFileSize = 1;
@@ -587,7 +588,7 @@ t2fs_record findParentDescriptor(const char *filename, char *outName)
         dir = cwdDescriptor;
     char *token;
     char lastToken[MAX_FILE_NAME_SIZE + 1];
-    if (strstr(filename, "/") != NULL)
+    if (strstr(l_filename, "/") != NULL)
     {
         token = strtok(l_filename, "/");
         do 
@@ -615,7 +616,7 @@ t2fs_record findParentDescriptor(const char *filename, char *outName)
         outName != NULL ? strcpy(outName, lastToken) : 0 ;
         return dir;
     }
-    else { outName != NULL ? strcpy(outName, filename) : 0; return dir; }
+    else { outName != NULL ? strcpy(outName, l_filename) : 0; return dir; }
 }
 
 t2fs_record findDirDescriptor(const char *filename)
@@ -648,10 +649,8 @@ t2fs_record findDirDescriptor(const char *filename)
                 if (readNthBlock(&dir, i, (char*) buffer) != 0)  break;
                 for (j = 0; i*(partitionInfo.BlockSize) + j*sizeof(t2fs_record) <= dir.bytesFileSize && !found; ++j)
                 {
-                    printf("Buffer[%d].name = %s\n", j, buffer[j].name);
                     if (streq2(token, buffer[j].name))
                     {
-                        printf("Found %s entry in cwd!\n", token);
                         dir = buffer[j];
                         found = true;
                     }
@@ -689,7 +688,7 @@ t2fs_record findFileInDir(const t2fs_record *dir, const char *filename)
 int createEntryAbsolute(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut)
 {
     char l_filename[MAX_FILE_NAME_SIZE + 1];
-    strcpy(l_filename, filename);
+    strcpy(l_filename, filename+1);
     t2fs_record dir = partitionInfo.RootDirReg;
     t2fs_record buffer[partitionInfo.BlockSize/sizeof(t2fs_record)];
     char *token;
@@ -735,7 +734,7 @@ int createEntryAbsolute(const char *filename, int beginBlock, int type, t2fs_rec
         return 0;
     }
     else {
-        if (createEntryDir(&dir, filename, beginBlock, type, descriptorOut) == -1)
+        if (createEntryDir(&dir, l_filename, beginBlock, type, descriptorOut) == -1)
         {
             return -1;
         }
@@ -750,8 +749,9 @@ int createEntryAbsolute(const char *filename, int beginBlock, int type, t2fs_rec
     }
     return 0;
 }
-
-int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut)
+// criar função que sobe construindo o absolute path.
+// retornar isso pra função de cima via ponteiro e guardar no OPEN_FILE
+int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut, char *absPath, const char *cwdPath)
 {
     char l_filename[MAX_FILE_NAME_SIZE + 1];
     strcpy(l_filename, filename);
@@ -759,6 +759,7 @@ int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_rec
     t2fs_record buffer[partitionInfo.BlockSize/sizeof(t2fs_record)];
     char *token;
     char lastToken[MAX_FILE_NAME_SIZE + 1];
+    strcpy(absPath, cwdPath);
     if (strstr(l_filename, "/") != NULL)
     {
         token = strtok(l_filename, "/");
@@ -767,6 +768,16 @@ int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_rec
             strcpy(lastToken, token);
             token = strtok(NULL, "/");
             if (token == NULL) break;
+            if (streq2(lastToken, ".."))
+            {
+                *strrchr(absPath, '/') = '\0';
+                if (absPath[0] == '\0') { absPath[0] = '/', absPath[1] = '\0'; }
+            }
+            else if (!streq2(lastToken, ".")){
+                if (absPath[1] != '\0')
+                    strcat(absPath, "/");
+                strcat(absPath, lastToken);
+            }
             int i, j;
             bool found = false;
             for (i = 0; i < dir.blocksFileSize && !found; ++i)
@@ -784,6 +795,13 @@ int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_rec
             if (!found) return -1;
             
         } while (token != NULL);
+        if (*(strrchr(absPath, '/') + 1) != '\0')
+            strcat(absPath, "/");
+        strcat(absPath, lastToken);
+        if (streq2(dir.name, "."))
+        {
+            strcpy(dir.name, strrchr(cwdPath, '/') + 1);
+        }
         if (createEntryDir(&dir, lastToken, beginBlock, type, descriptorOut) == -1)
         {
             return -1;
@@ -799,6 +817,9 @@ int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_rec
         return 0;
     }
     else {
+        
+if (*(strrchr(absPath, '/') + 1) != '\0')
+            strcat(absPath, "/");        strcat(absPath, filename);
         if (createEntryDir(&dir, filename, beginBlock, type, descriptorOut) == -1)
         {
             return -1;

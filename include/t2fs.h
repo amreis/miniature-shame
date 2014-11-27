@@ -57,6 +57,7 @@ typedef struct {
     t2fs_record dirDescriptor;
     int offset;
     bool open;
+    char absolutePath[1024];
 } OPEN_FILE;
 
 typedef struct {

@@ -19,6 +19,8 @@ int sectorsPerBlock;
 int entriesInIndexBlock;
 
 void copyRecord(t2fs_record *dst, const t2fs_record *org);
+
+inline int min(int a, int b);
 int strncpy2(char *dst, const char *org, int n);
 bool streq2(const char *s1, const char *s2);
 void printRecordInfo(t2fs_record *r);
@@ -37,6 +39,5 @@ t2fs_record findParentDescriptor(const char *filename, char *outName);
 t2fs_record findFileInDir(const t2fs_record *dir, const char *filename);
 t2fs_record findDirDescriptor(const char *filename);
 int createEntryAbsolute(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut);
-int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut);
-
+int createEntryRelative(const char *filename, int beginBlock, int type, t2fs_record* descriptorOut, char *absPath, const char *cwdPath);
 #endif

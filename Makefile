@@ -3,7 +3,7 @@ LIB_DIR=./lib
 BIN_DIR=./bin
 SRC_DIR=./src
 INC_DIR=./include
-FLAGS=-m32 -Wall
+FLAGS=-m32 -Wall -g
 .SUFFIXES:
 .SUFFIXES: .o .c
 SRCS=$(SRC_DIR)/t2fs.c $(SRC_DIR)/aux.c
